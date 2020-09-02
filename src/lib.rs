@@ -34,6 +34,11 @@ impl Encoder {
         self.mapping.len()
     }
 
+    /// Return the unique labels
+    pub fn uniques(&self) -> Vec<String> {
+        self.mapping.keys().cloned().collect()
+    }
+
     /// Transform data to normalized encoding
     ///
     pub fn transform(&self, data: &Vec<String>) -> Vec<u64> {
@@ -86,5 +91,8 @@ mod tests {
         dbg!(recon_data.clone());
 
         assert_eq!(recon_data.len(), 9);
+
+        let uniques = enc.uniques();
+        dbg!("uniques: ", uniques);
     }
 }

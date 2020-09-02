@@ -1,7 +1,7 @@
 [package]
 name = "labello"
 version = "0.0.1"
-authors = ["Francesco Gadaleta <francesco@amethix.com>"]
+authors = ["Francesco <frag> Gadaleta <francesco@amethix.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
