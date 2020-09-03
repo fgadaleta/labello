@@ -1,37 +1,76 @@
 use std::collections::HashMap;
 
-// #[derive(PartialEq, Eq, Hash)]
-// pub enum GenericType {
-//     I(i64),
-//     F(f64),
-//     S(String)
-// }
 
 #[derive(Debug, Clone)]
+pub enum EncoderType {
+    Ordinal,
+    OneHot,
+    CustomMapping
+}
+
+
+#[derive(Debug)]
 pub struct Encoder {
+    pub enctype: EncoderType,
     pub mapping: HashMap<String, u64>,
 }
 
 impl Encoder {
-    pub fn new() -> Encoder {
+    pub fn new(enctype: Option<EncoderType>) -> Self {
+        let enctype = enctype.unwrap_or(EncoderType::Ordinal);
+
         Encoder {
-            mapping: HashMap::new()
+            mapping: HashMap::new(),
+            enctype: enctype
         }
     }
 
-    pub fn fit(&mut self, data: &Vec<String>) {
-        // let mut unique_classes: HashMap<String, u64> = HashMap::new();
-        let mut current_idx = 0u64;
-        for el in data.iter() {
-            if !self.mapping.contains_key(el) {
-                self.mapping.insert(el.to_string(), current_idx );
-                current_idx +=1;
-            }
+    /// Fit label encoder given the type (ordinal, one-hot, custom)
+    /// 
+    pub fn fit(&self, data: &Vec<String>) -> Self {
+        let mut mapping: HashMap<String, u64> = HashMap::new();
+
+        match self.enctype {
+            EncoderType::Ordinal => {
+                let mut current_idx = 0u64;
+
+                for el in data.iter() {
+                    if !mapping.contains_key(el) {
+                        mapping.insert(el.to_string(), current_idx);
+                        current_idx += 1;
+                    }
+                }
+            },
+
+            EncoderType::OneHot => unimplemented!(),
+
+            EncoderType::CustomMapping => unimplemented!()
+        }
+
+        Encoder {
+            mapping: mapping,
+            enctype: self.enctype.clone(),
         }
     }
 
-    pub fn nclasses(&self) -> usize {
-        self.mapping.len()
+    /// Transform data to normalized encoding
+    ///
+    pub fn transform(&self, data: &Vec<String>) -> Vec<u64> {
+        data.iter()
+            .filter_map(|el| self.mapping.get(el))
+            .cloned()
+            .collect()
+    }
+
+    /// Transform labels back to the original data
+    ///
+    pub fn inverse_transform(&self, data: &Vec<u64>) -> Vec<String> {
+        data.iter()
+            .filter_map(|el| {
+                self.mapping.iter().find_map(|(k, &v)| if v == *el { Some(k) } else { None })
+            })
+            .cloned()
+            .collect()
     }
 
     /// Return the unique labels
@@ -39,60 +78,45 @@ impl Encoder {
         self.mapping.keys().cloned().collect()
     }
 
-    /// Transform data to normalized encoding
-    ///
-    pub fn transform(&self, data: &Vec<String>) -> Vec<u64> {
-        // for each element in data, get the value at mapping[element]
-        data.iter()
-            .filter_map(|el| self.mapping.get(el))
-            .cloned()
-            .collect()
+    pub fn nclasses(&self) -> usize {
+        self.mapping.len()
     }
 
-    /// Transform labels back to original encoding.
-    ///
-    pub fn inverse_transform(&self, data: &Vec<u64>) -> Vec<String> {
-        data.iter()
-            .filter_map(|el| {
-                self.mapping.iter()
-                .find_map(|(key, &val)| if val == *el { Some(key) } else { None })
-            })
-            .cloned()
-            .collect()
 
-    }
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_fit_data() {
+    fn test_encoder_fit_and_transform() {
         let data: Vec<String> = vec!["hello".to_string(),
-                                     "world".to_string(),
-                                     "world".to_string(),
-                                     "world".to_string(),
-                                     "world".to_string(),
-                                     "again".to_string(),
-                                     "hello".to_string(),
-                                     "again".to_string(),
-                                     "goodbye".to_string()];
-        let mut enc = Encoder::new();
-        enc.fit(&data);
-        dbg!(enc.mapping.clone());
-        assert_eq!(enc.nclasses(), 4);
+                                    "world".to_string(),
+                                    "world".to_string(),
+                                    "world".to_string(),
+                                    "world".to_string(),
+                                    "again".to_string(),
+                                    "hello".to_string(),
+                                    "again".to_string(),
+                                    "goodbye".to_string()];
+        // declare a label encoder
+        let enc = Encoder::new(None);
 
+        // fit encoder with ordinal type (default)
+        let enc = enc.fit(&data);
+        dbg!(&enc);
+
+        // transform original data to internal encoded representation
         let trans_data = enc.transform(&data);
-        dbg!(trans_data.clone());
+        dbg!("trans data: ", &trans_data);
 
         let recon_data = enc.inverse_transform(&trans_data);
-        dbg!(recon_data.clone());
-
-        assert_eq!(recon_data.len(), 9);
+        dbg!("recon data: ", &recon_data);
 
         let uniques = enc.uniques();
-        dbg!("uniques: ", uniques);
+        dbg!("Uniques: ", &uniques);
+        assert_eq!(uniques.len(), 4);
     }
+
 }
