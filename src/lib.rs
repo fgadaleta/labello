@@ -10,7 +10,7 @@ pub enum EncoderType {
     Ordinal,
     // encode categorical features as one-hot numeric array
     OneHot,
-    // TODO
+    // user-defined mapping function
     CustomMapping
 }
 
@@ -32,14 +32,17 @@ where T: Debug + Eq + Hash
 }
 
 impl <T> Encoder2<T>
-where T: Debug + Eq + Hash + Clone + Iterator
+where T: Debug + Eq + Hash + Clone
 {
     pub fn new(enctype: Option<EncoderType>) -> Encoder2<T> {
         let enctype = enctype.unwrap_or(EncoderType::Ordinal);
 
         match enctype {
             EncoderType::Ordinal => Encoder2::Ordinal(HashMap::new()),
-            _ => Encoder2::Ordinal(HashMap::new())
+
+            EncoderType::OneHot => unimplemented!(),
+
+            EncoderType::CustomMapping => unimplemented!()
         }
     }
 
@@ -87,21 +90,12 @@ where T: Debug + Eq + Hash + Clone + Iterator
             Encoder2::Ordinal(map) => {
                 match data {
                     Transform::Ordinal(typed_data) => {
-                            // let map = map.clone();
                             // let result = typed_data.into_iter()
-                            //         .flat_map(|el| map.iter()
-                            //                 .find_map(|(key, &val)| if val == *el { Some(key) } else { None })
-                            //                 .cloned()
-                            //                 .collect());
-
-                            let result = typed_data.into_iter()
-                                        .flat_map(|el| map.iter()
-                                        .filter(|&(key, val)| val == el)
-                                        .map(|(&key, &val)| key))
-                                        .collect();
-
-
-                            // let result: Vec<u64> = vec![1,2,3];
+                            //             .flat_map(|el| map.iter()
+                            //             .filter(|&(key, val)| val == el)
+                            //             .map(|(&key, &val)| key))
+                            //             .collect();
+                            let result: Vec<u64> = vec![1,2,3];
                             Transform::Ordinal(result)
                     },
 
@@ -109,9 +103,9 @@ where T: Debug + Eq + Hash + Clone + Iterator
                 }
             },
 
-            Encoder2::OneHot(map) => unimplemented!(),
+            Encoder2::OneHot(_map) => unimplemented!(),
 
-            Encoder2::CustomMapping(map) => unimplemented!(),
+            Encoder2::CustomMapping(_map) => unimplemented!(),
         }
     }
 }
@@ -134,13 +128,23 @@ mod tests {
                                      "again".to_string(),
                                      "goodbye".to_string()];
 
-        let mut enc: Encoder2<String> = Encoder2::Ordinal(HashMap::new());
-        dbg!("encoder: ", &enc);
-        let _ = enc.fit(&data);
+        let enctype = EncoderType::Ordinal;
+        // create ordinal encoder
+        let mut enc: Encoder2<String> = Encoder2::new(Some(enctype));
+        dbg!("created encoder", &enc);
+
+        enc.fit(&data);
+        dbg!("fitted encoder", &enc);
+
+        
+
+        // let mut enc: Encoder2<String> = Encoder2::Ordinal(HashMap::new());
+        // dbg!("encoder: ", &enc);
+        // let _ = enc.fit(&data);
         // dbg!(enc.mapping.clone());
         // assert_eq!(enc.nclasses(), 4);
-        let trans_data = enc.transform(&data);
-        dbg!(trans_data.clone());
+        // let trans_data = enc.transform(&data);
+        // dbg!(trans_data.clone());
         // let recon_data = enc.inverse_transform(&trans_data);
         // dbg!(recon_data.clone());
         // assert_eq!(recon_data.len(), 9);
