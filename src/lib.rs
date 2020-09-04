@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::cmp::Eq;
 use std::hash::Hash;
 use std::fmt::Debug;
+use std::iter::Iterator;
 
 #[derive(Debug, Clone)]
 pub enum EncoderType {
@@ -31,7 +32,7 @@ where T: Debug + Eq + Hash
 }
 
 impl <T> Encoder2<T>
-where T: Debug + Eq + Hash + Clone
+where T: Debug + Eq + Hash + Clone + Iterator
 {
     pub fn new(enctype: Option<EncoderType>) -> Encoder2<T> {
         let enctype = enctype.unwrap_or(EncoderType::Ordinal);
@@ -55,7 +56,10 @@ where T: Debug + Eq + Hash + Clone
                     }
                 }
             },
-            _ => unimplemented!(),
+
+            Encoder2::OneHot(map) => unimplemented!(),
+
+            Encoder2::CustomMapping(map) => unimplemented!(),
 
         }
     }
@@ -83,18 +87,25 @@ where T: Debug + Eq + Hash + Clone
             Encoder2::Ordinal(map) => {
                 match data {
                     Transform::Ordinal(typed_data) => {
-                            let map = map.clone();
-                            let result = typed_data.into_iter()
-                                    .filter_map(|el| map.iter()
-                                            .find_map(|(key, &val)| if val == *el { Some(key) } else { None })
-                                            .cloned()
-                                            .collect());
+                            // let map = map.clone();
+                            // let result = typed_data.into_iter()
+                            //         .flat_map(|el| map.iter()
+                            //                 .find_map(|(key, &val)| if val == *el { Some(key) } else { None })
+                            //                 .cloned()
+                            //                 .collect());
 
-                            // let something: Vec<u64> = result.into_iter();
+                            let result = typed_data.into_iter()
+                                        .flat_map(|el| map.iter()
+                                        .filter(|&(key, val)| val == el)
+                                        .map(|(&key, &val)| key))
+                                        .collect();
+
+
+                            // let result: Vec<u64> = vec![1,2,3];
                             Transform::Ordinal(result)
                     },
 
-                    Transform::OneHot(t) => panic!("Transformed data not compatible with this encode");
+                    Transform::OneHot(t) => panic!("Transformed data not compatible with this encode")
                 }
             },
 
