@@ -20,6 +20,7 @@ pub enum EncoderType {
 pub enum Transform {
     Ordinal(Vec<u64>),
     OneHot(Vec<String>),
+    CustomMapping(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -77,9 +78,12 @@ where T: Debug + Eq + Hash + Clone
                             .filter_map(|el| map.get(el))
                             .cloned()
                             .collect();
-                            Transform::Ordinal(res)
+                        Transform::Ordinal(res)
                     },
-            _ => unimplemented!()
+
+            Encoder2::OneHot(_map) => unimplemented!(),
+
+            Encoder2::CustomMapping(_map) => unimplemented!(),
         }
     }
 
@@ -99,7 +103,8 @@ where T: Debug + Eq + Hash + Clone
                             Transform::Ordinal(result)
                     },
 
-                    Transform::OneHot(t) => panic!("Transformed data not compatible with this encode")
+                    Transform::OneHot(t) => panic!("Transformed data not compatible with this encode"),
+                    _ => unimplemented!(),
                 }
             },
 
@@ -136,7 +141,8 @@ mod tests {
         enc.fit(&data);
         dbg!("fitted encoder", &enc);
 
-        
+        let trans_data = enc.transform(&data);
+        dbg!("transformed data", trans_data);
 
         // let mut enc: Encoder2<String> = Encoder2::Ordinal(HashMap::new());
         // dbg!("encoder: ", &enc);
