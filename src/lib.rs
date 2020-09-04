@@ -4,7 +4,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Iterator;
 
-const fn num_bits<T>() -> usize { std::mem::size_of::<T>() * 8 }
+const fn num_bits<T>() -> usize {
+    std::mem::size_of::<T>() * 8
+}
 fn log_2(x: i32) -> u32 {
     assert!(x > 0);
     num_bits::<i32>() as u32 - x.leading_zeros() - 1
@@ -65,7 +67,6 @@ where
         }
     }
 
-
     /// Fit label encoder given the type (ordinal, one-hot, custom)
     ///
     pub fn fit(&mut self, data: &Vec<T>) {
@@ -84,45 +85,40 @@ where
             }
 
             Encoder2::OneHot(map) => {
-                let mut current_idx: u64 = 0u64;
-                // let mapping: HashMap<T, bool> = HashMap::new();
-
+                let mut mapping: HashMap<T, u64> = HashMap::new();
+                let mut current_idx = 0u64;
                 for el in data.iter() {
-                    // create a vector of as many elements as unique categories
-                    let mut ohe_repr: Vec<bool> = vec![false; datalen];
-
-                    if !map.contains_key(el) {
-                        // convert current_idx to binary
-                        // let ohe: Vec<bool> =  format!("{:b}", current_idx).chars()
-                        //         .filter_map(|n| {
-                        //                 match n {
-                        //                     '1' => Some(true),
-                        //                     '0' => Some(false),
-                        //                     _ => panic!("Invalid conversion to binary")
-                        //                 }
-                        //             }).collect();
-                        let ohe: Vec<bool> =  format!("{:b}", current_idx).chars().rev().enumerate()
-                                .filter_map(|(i, n)| {
-                                        dbg!("processing bit {}", &i);
-
-                                        match n {
-                                            '1' => {
-                                                    ohe_repr[i] = true;
-                                                    Some(true)}, // Some(true),
-                                            '0' => {
-                                                    // ohe_reprpush(false);
-                                                    Some(false)},
-                                            _ => panic!("Invalid conversion to binary")
-                                        }
-                                    }).collect();
-
-                        // dbg!("ohe_repr: ", &ohe_repr);
-                        // insert to hashmap as (key, ohe)
-                        map.insert(el.clone(), ohe_repr);
+                    if !mapping.contains_key(el) {
+                        mapping.insert(el.clone(), current_idx);
                         current_idx += 1;
                     }
                 }
-            },
+                // create a vector of as many elements as unique categories
+                let vecsize = mapping.len();
+                let mut ohe_repr: Vec<bool> = Vec::with_capacity(vecsize);
+
+                for (key, value) in mapping.into_iter() {
+                    // convert value to binary
+                    let mut ohe_repr: Vec<bool> = format!("{:b}", value)
+                        .chars()
+                        .enumerate()
+                        .filter_map(|(i, n)| match n {
+                            '1' => {
+                                ohe_repr.push(true);
+                                Some(true)
+                            }
+                            '0' => Some(false),
+                            _ => panic!("Invalid conversion to binary"),
+                        })
+                        .collect();
+
+                    // push remaining zeros (vecsize - current_len)
+                    for _ in 0..vecsize - ohe_repr.len() { ohe_repr.push(false);}
+
+                    // insert into final hashmap
+                    map.insert(key, ohe_repr);
+                }
+            }
 
             Encoder2::CustomMapping(map) => unimplemented!(),
         }
@@ -148,27 +144,22 @@ where
     ///
     pub fn inverse_transform(&self, data: &Transform) -> Vec<T> {
         match self {
-            Encoder2::Ordinal(map) => {
-                match data {
-                    Transform::Ordinal(typed_data) => {
-                        let result: Vec<T> = typed_data
-                            .into_iter()
-                            .flat_map(|&el| {
-                                map.iter()
-                                    .filter(move |&(_key, val)| val == &el)
-                                    .map(|(key, &_val)| key.clone())
-
-                            })
-                            .collect();
-                        result
-                    }
-
-                    Transform::OneHot(t) => {
-                        panic!("Transformed data not compatible with this encode")
-                    }
-                    _ => unimplemented!(),
+            Encoder2::Ordinal(map) => match data {
+                Transform::Ordinal(typed_data) => {
+                    let result: Vec<T> = typed_data
+                        .into_iter()
+                        .flat_map(|&el| {
+                            map.iter()
+                                .filter(move |&(_key, val)| val == &el)
+                                .map(|(key, &_val)| key.clone())
+                        })
+                        .collect();
+                    result
                 }
-            }
+
+                Transform::OneHot(t) => panic!("Transformed data not compatible with this encode"),
+                _ => unimplemented!(),
+            },
 
             Encoder2::OneHot(_map) => unimplemented!(),
 
@@ -184,14 +175,14 @@ mod tests {
     #[test]
     fn test_one_hot_encoding() {
         let x = 42u64;
-        let ohe: Vec<bool> =  format!("{:b}", x).chars()
-                                    .filter_map(|n| {
-                                            match n {
-                                                '1' => Some(true),
-                                                '0' => Some(false),
-                                                _ => panic!("Conversion to binary failed")
-                                            }
-                                        }).collect();
+        let ohe: Vec<bool> = format!("{:b}", x)
+            .chars()
+            .filter_map(|n| match n {
+                '1' => Some(true),
+                '0' => Some(false),
+                _ => panic!("Conversion to binary failed"),
+            })
+            .collect();
         dbg!(ohe);
 
         // check number of bits is correct
@@ -245,7 +236,5 @@ mod tests {
         dbg!("created encoder", &enc);
         enc.fit(&data);
         dbg!("fitted encoder", &enc);
-
-
     }
 }
