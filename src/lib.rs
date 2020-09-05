@@ -95,6 +95,8 @@ where
                 }
                 // create a vector of as many elements as unique categories
                 let vecsize = mapping.len();
+
+                // TODO don't like this here
                 let mut ohe_repr: Vec<bool> = Vec::with_capacity(vecsize);
 
                 for (key, value) in mapping.into_iter() {
