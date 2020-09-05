@@ -4,13 +4,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Iterator;
 
-const fn num_bits<T>() -> usize {
-    std::mem::size_of::<T>() * 8
-}
-fn log_2(x: i32) -> u32 {
-    assert!(x > 0);
-    num_bits::<i32>() as u32 - x.leading_zeros() - 1
-}
 
 #[derive(Debug, Clone)]
 pub enum EncoderType {
@@ -43,7 +36,7 @@ where
 
 impl<T> Encoder2<T>
 where
-    T: Debug + Eq + Hash + Clone,
+    T: Debug + Eq + Hash + Clone + Send + Sync,
 {
     pub fn new(enctype: Option<EncoderType>) -> Encoder2<T> {
         let enctype = enctype.unwrap_or(EncoderType::Ordinal);
@@ -61,6 +54,7 @@ where
     ///
     pub fn nclasses(&self) -> usize {
         match self {
+            // TODO len is the same for every type
             Encoder2::Ordinal(map) => map.len(),
             Encoder2::OneHot(map) => map.len(),
             Encoder2::CustomMapping(map) => map.len(),
@@ -87,12 +81,21 @@ where
             Encoder2::OneHot(map) => {
                 let mut mapping: HashMap<T, u64> = HashMap::new();
                 let mut current_idx = 0u64;
+
                 for el in data.iter() {
                     if !mapping.contains_key(el) {
                         mapping.insert(el.clone(), current_idx);
                         current_idx += 1;
                     }
                 }
+
+                // let _ = data.par_iter().map(|el| {
+                //     if !mapping.contains_key(el) {
+                //         mapping.insert(el.clone(), current_idx);
+                //         current_idx += 1;
+                //     }
+                // });
+
                 // create a vector of as many elements as unique categories
                 let vecsize = mapping.len();
 
@@ -176,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_one_hot_encoding() {
-        let x = 42u64;
+        let x = 128u64;
         let ohe: Vec<bool> = format!("{:b}", x)
             .chars()
             .filter_map(|n| match n {
@@ -185,10 +188,12 @@ mod tests {
                 _ => panic!("Conversion to binary failed"),
             })
             .collect();
-        dbg!(ohe);
+        dbg!(&ohe);
+
+        assert_eq!(ohe.len(), 8);
 
         // check number of bits is correct
-        assert_eq!(log_2(128), 7);
+        // assert_eq!(log_2(128), 7);
     }
     #[test]
     fn test_fit_ordinal_encoder() {
