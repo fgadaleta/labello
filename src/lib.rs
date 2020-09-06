@@ -46,9 +46,19 @@ pub struct Config<T> {
 #[derive(Debug, Clone)]
 pub enum Transform {
     Ordinal(Vec<u64>),
-    OneHot(Vec<String>),
+    OneHot(Vec<OheRepr>),
     CustomMapping(Vec<u64>),
 }
+
+// impl Debug for Transform {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+//         f.debug_struct("Transform")
+//         .field("field", Result(42))
+//         .finish();
+//     }
+// }
+
+type OheRepr = Vec<bool>;
 
 #[derive(Debug)]
 pub enum Encoder<T>
@@ -56,7 +66,7 @@ where
     T: Debug + Eq + Hash,
 {
     Ordinal(HashMap<T, u64>),
-    OneHot(HashMap<T, Vec<bool>>),
+    OneHot(HashMap<T, OheRepr>),
     Custom(HashMap<T, u64>),
 }
 
@@ -134,7 +144,7 @@ where
                     let mut ohe_repr: Vec<bool> = format!("{:b}", value)
                         .chars()
                         .enumerate()
-                        .filter_map(|(i, n)| match n {
+                        .filter_map(|(_i, n)| match n {
                             '1' => {
                                 ohe_repr.push(true);
                                 Some(true)
@@ -175,7 +185,10 @@ where
                 Transform::Ordinal(res)
             }
 
-            Encoder::OneHot(_map) => unimplemented!(),
+            Encoder::OneHot(map) => {
+                let res: Vec<OheRepr> = data.iter().filter_map(|el| map.get(el)).cloned().collect();
+                Transform::OneHot(res)
+            },
 
             Encoder::Custom(map) => {
                 let res: Vec<u64> = data.iter().filter_map(|el| map.get(el)).cloned().collect();
@@ -188,13 +201,13 @@ where
     ///
     pub fn inverse_transform(&self, data: &Transform) -> Vec<T> {
         match self {
-            Encoder::Ordinal(map) => match data {
+            Encoder::Ordinal(mapping) => match data {
                 Transform::Ordinal(typed_data) => {
 
                     let result: Vec<T> = typed_data
                         .into_iter()
                         .flat_map(|&el| {
-                            map.iter()
+                            mapping.iter()
                                 .filter(move |&(_key, val)| val == &el)
                                 .map(|(key, &_val)| key.clone())
                         })
@@ -204,7 +217,8 @@ where
                 }
 
                 // TODO default case here is incompatible with encoder (panic)
-                Transform::OneHot(t) => panic!("Transformed data not compatible with this encode"),
+                Transform::OneHot(_t) => panic!("Transformed data not compatible with this encode"),
+
                 _ => unimplemented!(),
             },
 
@@ -217,8 +231,8 @@ where
                         .into_iter()
                         .flat_map(|&el| {
                             map.iter()
-                                .filter(move |&(k, v)| v == &el)
-                                .map(|(k, &v)| k.clone())
+                                .filter(move |&(_k, v)| v == &el)
+                                .map(|(k, &_v)| k.clone())
                         })
                         .collect();
 
@@ -302,8 +316,7 @@ mod tests {
             "again".to_string(),
             "goodbye".to_string(),
         ];
-        let enctype = EncoderType::OneHot;
-        let mut enc: Encoder<String> = Encoder::new(Some(enctype));
+        let mut enc: Encoder<String> = Encoder::new(Some(EncoderType::OneHot));
         dbg!("created encoder", &enc);
 
         let config = Config {
@@ -313,6 +326,9 @@ mod tests {
 
         enc.fit(&data, &config);
         dbg!("fitted encoder", &enc);
+
+        let trans_data = enc.transform(&data);
+        dbg!("trans data: ", &trans_data);
     }
 
     #[test]
