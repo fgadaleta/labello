@@ -1,4 +1,4 @@
-# Labello: a simple label encoder
+# Labello: a fast label encoder in Rust
 
 This crate provides a simple API for encoding labels represented by vectors.
 It uses a hashmap as internal data structure for classes and their mapping.

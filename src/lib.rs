@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Iterator;
-use std::default::Default;
 
-
+// use std::default::Default;
 // use rayon::prelude::*;
 // use std::iter::Sum;
 // use std::ops::Mul;
@@ -15,7 +14,7 @@ use std::default::Default;
 //          .map(|&i| i * i)
 //          .sum()
 // }
-
+//
 // const fn num_bits<T>() -> usize {
 //     std::mem::size_of::<T>() * 8
 // }
@@ -34,102 +33,86 @@ pub enum EncoderType {
     CustomMapping,
 }
 
-// TODO to replace current enctype in new()
 #[derive(Debug, Clone)]
-pub struct Config {
+pub struct Config<T> {
     // maximum number of classes (repeat after the max)
     pub max_nclasses: Option<u64>,
-    // only for custom encoder
-    pub mapping_function: Option<fn(String) -> u64>,
+    // only for custom encoder (e.g. define closure on the single element)
+    pub mapping_function: Option<fn(T) -> u64>,
 }
 
-fn foo(config: &Config) {
-
-}
-
-// fn call_twice<A, F>(val: A, mut f: F) -> A
-// where F: FnMut(A) -> A {
-//     let tmp = f(val);
-//     f(tmp)
-// }
-
-
-/// Transformed data type
+/// transformed data type
 ///
 #[derive(Debug, Clone)]
 pub enum Transform {
     Ordinal(Vec<u64>),
     OneHot(Vec<String>),
-    CustomMapping(Vec<String>),
+    CustomMapping(Vec<u64>),
 }
 
 #[derive(Debug)]
-pub enum Encoder2<T>
+pub enum Encoder<T>
 where
     T: Debug + Eq + Hash,
 {
     Ordinal(HashMap<T, u64>),
     OneHot(HashMap<T, Vec<bool>>),
-    Custom(HashMap<T, String>),
+    Custom(HashMap<T, u64>),
 }
 
-impl<T> Encoder2<T>
+impl<T> Encoder<T>
 where
-    T: Debug + Eq + Hash + Clone + Send + Sync,
+    T: Debug + Eq + Hash + Clone + Send + Sync
 {
-    pub fn new(enctype: Option<EncoderType>) -> Encoder2<T> {
+    pub fn new(enctype: Option<EncoderType>) -> Encoder<T> {
 
         let enctype = enctype.unwrap_or(EncoderType::Ordinal);
 
         match enctype {
-            EncoderType::Ordinal => Encoder2::Ordinal(HashMap::new()),
+            EncoderType::Ordinal => Encoder::Ordinal(HashMap::new()),
 
-            EncoderType::OneHot => Encoder2::OneHot(HashMap::new()),
+            EncoderType::OneHot => Encoder::OneHot(HashMap::new()),
 
-            EncoderType::CustomMapping => unimplemented!(),
+            EncoderType::CustomMapping => Encoder::Custom(HashMap::new()),
         }
     }
-
-    // Clean me
-    // pub fn set_mapping(&self, func: impl Fn(T) -> T) {
-    //     match self {
-    //         Encoder2::Custom(map) => unimplemented!(),
-    //         _ => panic!("Can set custom mapping only for EncoderType::CustomMapping.")
-    //     }
-    // }
 
     /// Return number of unique categories
     ///
     pub fn nclasses(&self) -> usize {
         match self {
             // TODO len is the same for every type
-            Encoder2::Ordinal(map) => map.len(),
-            Encoder2::OneHot(map) => map.len(),
-            Encoder2::Custom(map) => map.len(),
+            Encoder::Ordinal(map) => map.len(),
+            Encoder::OneHot(map) => map.len(),
+            Encoder::Custom(map) => map.len(),
         }
     }
 
     /// Fit label encoder given the type (ordinal, one-hot, custom)
     ///
-    pub fn fit(&mut self, data: &Vec<T>, config: &Config) {
+    pub fn fit(&mut self, data: &Vec<T>, config: &Config<T>) {
         // TODO integrate config and take max_nclasses and mapping from there
-        let _ = config;
-
-        let datalen = data.len();
-        dbg!("datalen ", datalen);
+        let max_nclasses: u64 = config.max_nclasses.unwrap_or(u64::MAX);
+        // let datalen = data.len();
+        // dbg!("datalen ", datalen);
 
         match self {
-            Encoder2::Ordinal(map) => {
+            Encoder::Ordinal(map) => {
                 let mut current_idx = 0u64;
+
                 for el in data.iter() {
                     if !map.contains_key(el) {
                         map.insert(el.clone(), current_idx);
-                        current_idx += 1;
+
+                        // add new category index if less than max_classes
+                        if current_idx < max_nclasses {
+                            current_idx += 1;
+                        }
                     }
                 }
             }
 
-            Encoder2::OneHot(map) => {
+            Encoder::OneHot(map) => {
                 let mut mapping: HashMap<T, u64> = HashMap::new();
                 let mut current_idx = 0u64;
 
@@ -169,32 +152,35 @@ where
                 }
             }
 
-            Encoder2::Custom(map) => {
-                // let mapping_function = match mapping_func {
-                //     Some(mf) => mf,
-                //     None => panic!("Define a mapping function for a Custom encoder")
-                // };
-                // dbg!("User-defined mapping function ", mapping_function);
-                unimplemented!();
+            Encoder::Custom(map) => {
+                let mapping_func = config.mapping_function.unwrap();
+                for el in data.iter() {
+                    if !map.contains_key(el) {
+                        let value = mapping_func(el.clone());
+                        dbg!("custom mapping to {}", &value);
+                        map.insert(el.clone(), value);
+                    }
+                }
             }
-
         }
     }
-
 
     /// Transform data to normalized encoding
     ///
     pub fn transform(&self, data: &Vec<T>) -> Transform {
         match self {
-            Encoder2::Ordinal(map) => {
+            Encoder::Ordinal(map) => {
                 // for each element in data, get the value at mapping[element]
                 let res: Vec<u64> = data.iter().filter_map(|el| map.get(el)).cloned().collect();
                 Transform::Ordinal(res)
             }
 
-            Encoder2::OneHot(_map) => unimplemented!(),
+            Encoder::OneHot(_map) => unimplemented!(),
 
-            Encoder2::Custom(_map) => unimplemented!(),
+            Encoder::Custom(map) => {
+                let res: Vec<u64> = data.iter().filter_map(|el| map.get(el)).cloned().collect();
+                Transform::CustomMapping(res)
+            },
         }
     }
 
@@ -202,8 +188,9 @@ where
     ///
     pub fn inverse_transform(&self, data: &Transform) -> Vec<T> {
         match self {
-            Encoder2::Ordinal(map) => match data {
+            Encoder::Ordinal(map) => match data {
                 Transform::Ordinal(typed_data) => {
+
                     let result: Vec<T> = typed_data
                         .into_iter()
                         .flat_map(|&el| {
@@ -212,16 +199,34 @@ where
                                 .map(|(key, &_val)| key.clone())
                         })
                         .collect();
+
                     result
                 }
 
+                // TODO default case here is incompatible with encoder (panic)
                 Transform::OneHot(t) => panic!("Transformed data not compatible with this encode"),
                 _ => unimplemented!(),
             },
 
-            Encoder2::OneHot(_map) => unimplemented!(),
+            Encoder::OneHot(_map) => unimplemented!(),
 
-            Encoder2::Custom(_map) => unimplemented!(),
+            Encoder::Custom(map) => match data {
+                Transform::CustomMapping(typed_data) => {
+
+                    let result: Vec<T> = typed_data
+                        .into_iter()
+                        .flat_map(|&el| {
+                            map.iter()
+                                .filter(move |&(k, v)| v == &el)
+                                .map(|(k, &v)| k.clone())
+                        })
+                        .collect();
+
+                    result
+
+                },
+                _ => panic!("Transformed data not compatible with this encode")
+            },
         }
     }
 }
@@ -248,6 +253,7 @@ mod tests {
         // check number of bits is correct
         // assert_eq!(log_2(128), 7);
     }
+
     #[test]
     fn test_fit_ordinal_encoder() {
         let data: Vec<String> = vec![
@@ -264,12 +270,12 @@ mod tests {
 
         let enctype = EncoderType::Ordinal;
         // create ordinal encoder
-        let mut enc: Encoder2<String> = Encoder2::new(Some(enctype));
+        let mut enc: Encoder<String> = Encoder::new(Some(enctype));
         dbg!("created encoder", &enc);
 
         // provide configuation for fitting
         let config = Config {
-            max_nclasses: Some(10),
+            max_nclasses: None,
             mapping_function: None,
         };
         enc.fit(&data, &config);
@@ -297,18 +303,12 @@ mod tests {
             "goodbye".to_string(),
         ];
         let enctype = EncoderType::OneHot;
-        let mut enc: Encoder2<String> = Encoder2::new(Some(enctype));
+        let mut enc: Encoder<String> = Encoder::new(Some(enctype));
         dbg!("created encoder", &enc);
 
         let config = Config {
-            max_nclasses: Some(10),
-            mapping_function: Some(
-                    |_el| {
-                        match _el.as_str() {
-                            "" => 42,
-                            _ => 0
-                        }
-                }),
+            max_nclasses: Some(3),
+            mapping_function: None,
         };
 
         enc.fit(&data, &config);
@@ -329,12 +329,13 @@ mod tests {
             "goodbye".to_string(),
         ];
 
-        let config = Config {
+        let config: Config<String> = Config {
             max_nclasses: Some(10),
             mapping_function: Some(
-                    |_el| {
-                        match _el.as_str() {
-                            "" => 42,
+                    |el| {
+                        match el.as_str() {
+                            "hello" => 42,
+                            "goodbye" => 99,
                             _ => 0
                         }
                 }),
@@ -342,11 +343,16 @@ mod tests {
         dbg!("config max_nclasses: {}",  &config.max_nclasses);
 
         let enctype = EncoderType::CustomMapping;
-        let mut enc: Encoder2<String> = Encoder2::new(Some(enctype));
+        let mut enc: Encoder<String> = Encoder::new(Some(enctype));
         dbg!("created encoder", &enc);
 
-        // enc.fit(&data);
-        // dbg!("fitted encoder", &enc);
+        enc.fit(&data, &config);
+        dbg!("fitted encoder", &enc);
 
+        let trans_data = enc.transform(&data);
+        dbg!(&trans_data);
+
+        let recon_data = enc.inverse_transform(&trans_data);
+        dbg!("recon data: ", recon_data);
     }
 }
