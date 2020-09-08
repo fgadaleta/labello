@@ -108,34 +108,27 @@ where T: Hash + Eq + Clone + Debug
                         }
                     }
                 }
-                let vecsize = mapping.len();
 
-                // TODO ?? do we need this here?
-                let mut ohe_repr: OheRepr = Vec::with_capacity(vecsize);
+                let vecsize = mapping.len();
                 for (key, value) in mapping.into_iter() {
-                    // let mut current_len: usize = 0;
-                    let mut ohe_repr: OheRepr = format!("{:b}", value)
+                    let mut converted: OheRepr = format!("{:b}", value)
                                                 .chars()
                                                 .enumerate()
                                                 .filter_map(|(_i, n)| match n {
                                                     '1' => {
-                                                        ohe_repr.push(true);
-                                                        // current_len += 1;
                                                         Some(true)
                                                     },
 
                                                     '0' => Some(false),
-
                                                     _ => panic!("Invalid conversion to binary"),
                                                 })
                                                 .collect();
-
                     // push remaining zeros (vecsize - current len)
-                    for _ in 0..vecsize - ohe_repr.len() {
-                        ohe_repr.push(false);
+                    for _ in 0..vecsize - converted.len() {
+                        converted.push(false);
                     }
                     // insert into final hashmap
-                    map.insert(key, ohe_repr);
+                    map.insert(key, converted);
                 }
             },
 

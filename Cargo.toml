@@ -5,11 +5,8 @@ keywords = ["label", "encoder", "machinelearning"]
 license = "Apache-2.0/MIT"
 repository = "https://github.com/fgadaleta/labello"
 version = "0.0.3"
-authors = ["Francesco <frag> Gadaleta <francesco@amethix.com>"]
+authors = ["Francesco Gadaleta <francesco@amethix.com>"]
 edition = "2018"
 
-# [[bin]]
-# name = "labello"
-# doc = false
 
 [dependencies]
