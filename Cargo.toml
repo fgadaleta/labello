@@ -4,7 +4,7 @@ description = "Simple label encoder with configurable types"
 keywords = ["label", "encoder", "machinelearning"]
 license = "Apache-2.0/MIT"
 repository = "https://github.com/fgadaleta/labello"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Francesco Gadaleta <francesco@amethix.com>"]
 edition = "2018"
 
