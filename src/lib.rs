@@ -108,34 +108,28 @@ where T: Hash + Eq + Clone + Debug
                         }
                     }
                 }
-                let vecsize = mapping.len();
 
-                // TODO ?? do we need this here?
-                let mut ohe_repr: OheRepr = Vec::with_capacity(vecsize);
+                let vecsize = mapping.len();
                 for (key, value) in mapping.into_iter() {
-                    // let mut current_len: usize = 0;
-                    let mut ohe_repr: OheRepr = format!("{:b}", value)
+                    let mut converted: OheRepr = format!("{:b}", value)
                                                 .chars()
+                                                .rev()
                                                 .enumerate()
                                                 .filter_map(|(_i, n)| match n {
                                                     '1' => {
-                                                        ohe_repr.push(true);
-                                                        // current_len += 1;
                                                         Some(true)
                                                     },
 
                                                     '0' => Some(false),
-
                                                     _ => panic!("Invalid conversion to binary"),
                                                 })
                                                 .collect();
-
                     // push remaining zeros (vecsize - current len)
-                    for _ in 0..vecsize - ohe_repr.len() {
-                        ohe_repr.push(false);
+                    for _ in 0..vecsize - converted.len() {
+                        converted.push(false);
                     }
                     // insert into final hashmap
-                    map.insert(key, ohe_repr);
+                    map.insert(key, converted);
                 }
             },
 
@@ -197,6 +191,7 @@ where T: Hash + Eq + Clone + Debug
                 Transform::OneHot(typed_data) => {
                     let result: Vec<T> = typed_data.iter()
                     .flat_map(|el| {
+
                         mapping.into_iter()
                         .filter(move |&(_key, val)| {
                             let mut equal_el: usize = 0;
@@ -205,11 +200,15 @@ where T: Hash + Eq + Clone + Debug
                                     equal_el += 1;
                                 }
                             }
-                            // val == el
+                            // println!("comparing {:?} with {:?} matched {:?}", el, val, equal_el == val.len());
                             equal_el == val.len()
                         }
                     )
-                        .map(|(key, _val)| key.clone())
+                        .map(move |(key, _val)| {
+                            // dbg!("typed_data: ", el.clone());
+                            // dbg!("key: ", key.clone());
+                            key.clone()
+                        })
                     })
                     .collect();
                     result
@@ -348,7 +347,7 @@ mod tests {
                                     ];
 
         let config = Config {
-            max_nclasses: Some(10),
+            max_nclasses: None,
             mapping_function: None
         };
         let mut enc: Encoder<String> = Encoder::new(Some(EncoderType::OneHot));
@@ -356,7 +355,7 @@ mod tests {
         dbg!("fitted encoder: ", &enc);
 
         let trans_data = enc.transform(&data);
-        dbg!("trans data: ", &trans_data);
+        // dbg!("trans data: ", &trans_data);
         assert_eq!(trans_data.len(), data.len());
 
         let recon_data = enc.inverse_transform(&trans_data);
