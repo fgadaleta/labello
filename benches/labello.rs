@@ -67,6 +67,7 @@ fn labello_bench(c: &mut Criterion) {
                     BenchmarkId::from_parameter(ncat),
                     &data,
                     |b, d| b.iter(|| enc.fit(&d, &config)));
+                    
     }
 
     group.finish();
