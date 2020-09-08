@@ -10,3 +10,7 @@ edition = "2018"
 
 
 [dependencies]
+
+[[bench]]
+name = "labello"
+harness = false
